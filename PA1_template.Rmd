@@ -5,21 +5,164 @@ output:
     keep_md: true
 ---
 
-
 ## Loading and preprocessing the data
 
-
+As a part of preprocessing I converted date from character to Date Format
+```{r , echo=TRUE}
+setwd("F:\\Data Science\\My Codes and Assignments\\Coursera\\Reproducible research\\week 2\\Data")
+DT <- read.csv("activity.csv")
+DT$date <- as.Date(as.character(DT$date))
+```
 
 ## What is mean total number of steps taken per day?
 
+Followed the following steps:
+1) I omitted the null values for this part
+2) Aggregated the number of steps for each day
+3)plotted the histogram 
+
+```{r, echo=TRUE}
+library(dplyr)
+DTcomplete <- na.omit(DT)
+summarisedDT <- DTcomplete %>% group_by(date) %>% summarise(Tot.Steps = sum(steps))
+plot(summarisedDT$date,summarisedDT$Tot.Steps,type = "h",xlab = "Date",ylab = "No Of Steps",main = "No of Steps Each Day")
+```
 
 
-## What is the average daily activity pattern?
+Mean of No of steps per day:
+```{r, echo=TRUE}
+mean(summarisedDT$Tot.Steps,na.rm = TRUE)
+```
+
+Median of No of steps per day: 
+```{r, echo=TRUE}
+median(summarisedDT$Tot.Steps)
+```
+
+##What is the average daily activity pattern?
 
 
 
-## Imputing missing values
+
+```{r, echo=TRUE}
+library(dplyr)
+DTcomplete <- na.omit(DT)
+summarisedDataComplete <- DTcomplete %>% group_by(interval) %>% summarise(Tot.Steps = sum(steps))
+
+plot(summarisedDataComplete$interval,summarisedDataComplete$Tot.Steps,type = "l",xlab = "Interval" ,ylab = "No of Steps",main = "No of Steps per interval")
+
+```
+
+The Interval With the maximum number of Steps
+
+```{r, echo=TRUE}
+lastRow<- tail(summarisedDataComplete[order(summarisedDataComplete$Tot.Steps),],1)
+lastRow$interval
+```
+
+##Inputing missing values
+
+Number of missing values
+
+```{r, echo=TRUE}
+sum(is.na(DT))
+```
+
+Strategy For Finding out missing Values:
+
+The Function Calculate Missing values calculates the missing value for that row which is he mean of the number of steps in that interval. 
+
+```{r, echo=TRUE}
+
+calculateMissingValue <- function(dataSet,rowIndex)
+{
+  row <- dataSet[rowIndex,]
+  subsetOfThisInterval <- subset(dataSet,dataSet$interval == row$interval,select = c("steps"))
+  return(round(mean(subsetOfThisInterval$steps,na.rm = TRUE)))
+}
+
+```
+
+
+The Function ReturnMissingFilledDataSet fills creates a new dataset where missing values are filled based on the above strategy. 
+
+```{r, echo=TRUE}
+ReturnMissingFilledDataSet <- function(dataSet)
+{
+dataFilledMissing <- data.frame(steps = numeric(),date = numeric(),interval=numeric())
+for (i in 1:nrow(dataSet)) {
+  row <- dataSet[i,]
+  if(is.na(row$steps))
+  {
+    dataFilledMissing[i,] = c(calculateMissingValue(dataSet,i),row$date,row$interval)
+    next()
+  }
+  dataFilledMissing[i,] = c(row$steps,row$date,row$interval)
+}
+return(dataFilledMissing)
+}
+
+
+dataNAFilled = ReturnMissingFilledDataSet(DT)
+```
+
+
+Histogram of number of steps taken each day
+
+```{r, echo=TRUE}
+summarisedDT <- dataNAFilled %>% group_by(date) %>% summarise(Tot.Steps = sum(steps))
+plot(summarisedDT$date,summarisedDT$Tot.Steps,type = "h",xlab = "Date",ylab = "No
+Of Steps",main = "No of Steps Each Day")
+```
+
+Comarison of Medians
+They do differ slightly because of a wisely chosen strategy
+
+```{r, echo=TRUE}
+summarisedDTNaFilled <- dataNAFilled %>% group_by(date) %>% summarise(Tot.Steps =  sum(steps))  
+
+DTcomplete <- na.omit(DT)
+summarisedDTComplete <- DTcomplete %>% group_by(date) %>% summarise(Tot.Steps = 
+sum(steps))                                                                     
+
+
+median(summarisedDTNaFilled$Tot.Steps)
+median(summarisedDTComplete$Tot.Steps)
+```
+
+Comparison of Means
+
+They do not differ slightly because of a wisely chosen strategy
+
+```{r, echo=TRUE}
+mean(summarisedDTNaFilled$Tot.Steps)
+mean(summarisedDTComplete$Tot.Steps)
+```
+
+##Are there differences in activity patterns between weekdays and weekends?
+
+Creating a new factor indicating whether weekend or weekday
+
+```{r, echo=TRUE}
+library(dplyr)
+weekDays <- c("Monday","Tuesday","Wednesday","Thursday","Friday")
+weekEndDays<- c("Saturday","Sunday")
+DT <- mutate(DT,DayOfWeek = weekdays(DT$date))
+DT<- mutate(DT,DayType = ifelse((DayOfWeek %in% weekDays), "WeekDay", ifelse((DayOfWeek %in% weekEndDays), "WeekEnd", 0)))
+DT$DayType <- as.factor(DT$DayType)
+head(DT)
+```
+
+
+Panel Plot of Weekdays Vs Weekends
+
+```{r, echo=TRUE}
+dataWeekEnddays = subset(DT,DT$DayType=="WeekEnd")
+dataWeekdays = subset(DT,DT$DayType=="WeekDay")
+par(mfrow=c(2,1)) 
+plot(dataWeekdays$interval,dataWeekdays$steps,type = "l",main = "Weekdays",ylab = "Steps",xlab = "Interval")
+plot(dataWeekEnddays$interval,dataWeekEnddays$steps,type = "l",main = "WeekEnds",ylab = "Steps",xlab = "Interval")
+```
 
 
 
-## Are there differences in activity patterns between weekdays and weekends?
